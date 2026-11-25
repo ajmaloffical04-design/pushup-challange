@@ -1,0 +1,200 @@
+/**
+ * Phase 0 — Security Rules Verification Suite (Dirty Dozen Adversarial Payloads)
+ * Maps each adversarial payload from security_spec.md to its expected PERMISSION_DENIED outcome.
+ */
+
+export interface DirtyDozenCase {
+  id: number;
+  name: string;
+  operation: 'get' | 'list' | 'create' | 'update' | 'delete';
+  path: string;
+  auth: { uid: string; email_verified: boolean } | null;
+  payload?: Record<string, unknown>;
+  expectedResult: 'PERMISSION_DENIED';
+}
+
+export const DIRTY_DOZEN_PAYLOADS: DirtyDozenCase[] = [
+  {
+    id: 1,
+    name: 'Identity Spoofing on Profile',
+    operation: 'create',
+    path: '/users/userA',
+    auth: { uid: 'userA', email_verified: true },
+    payload: {
+      userId: 'userB',
+      dailyRepGoal: 100,
+      dailyProteinGoal: 120,
+      bodyWeightKg: 75,
+      createdAt: 'REQUEST_TIME',
+      updatedAt: 'REQUEST_TIME',
+    },
+    expectedResult: 'PERMISSION_DENIED',
+  },
+  {
+    id: 2,
+    name: 'Unverified Email Write',
+    operation: 'create',
+    path: '/users/userA',
+    auth: { uid: 'userA', email_verified: false },
+    payload: {
+      userId: 'userA',
+      dailyRepGoal: 100,
+      dailyProteinGoal: 120,
+      bodyWeightKg: 75,
+      createdAt: 'REQUEST_TIME',
+      updatedAt: 'REQUEST_TIME',
+    },
+    expectedResult: 'PERMISSION_DENIED',
+  },
+  {
+    id: 3,
+    name: 'Shadow Field Injection',
+    operation: 'create',
+    path: '/users/userA',
+    auth: { uid: 'userA', email_verified: true },
+    payload: {
+      userId: 'userA',
+      dailyRepGoal: 100,
+      dailyProteinGoal: 120,
+      bodyWeightKg: 75,
+      isAdmin: true,
+      createdAt: 'REQUEST_TIME',
+      updatedAt: 'REQUEST_TIME',
+    },
+    expectedResult: 'PERMISSION_DENIED',
+  },
+  {
+    id: 4,
+    name: 'Cross-User Read Isolation',
+    operation: 'get',
+    path: '/users/userA/workoutSets/set_1',
+    auth: { uid: 'userB', email_verified: true },
+    expectedResult: 'PERMISSION_DENIED',
+  },
+  {
+    id: 5,
+    name: 'User Collection Enumeration',
+    operation: 'list',
+    path: '/users',
+    auth: { uid: 'userA', email_verified: true },
+    expectedResult: 'PERMISSION_DENIED',
+  },
+  {
+    id: 6,
+    name: 'Orphaned Workout Set Without Parent Profile',
+    operation: 'create',
+    path: '/users/userNoProfile/workoutSets/set_1',
+    auth: { uid: 'userNoProfile', email_verified: true },
+    payload: {
+      userId: 'userNoProfile',
+      dateKey: '2026-11-25',
+      setNumber: 1,
+      pushUpType: 'shoulder',
+      reps: 25,
+      durationMs: 24000,
+      caloriesBurned: 12.5,
+      notes: '',
+      createdAt: 'REQUEST_TIME',
+    },
+    expectedResult: 'PERMISSION_DENIED',
+  },
+  {
+    id: 7,
+    name: 'Invalid Push-Up Enum Value',
+    operation: 'create',
+    path: '/users/userA/workoutSets/set_2',
+    auth: { uid: 'userA', email_verified: true },
+    payload: {
+      userId: 'userA',
+      dateKey: '2026-11-25',
+      setNumber: 1,
+      pushUpType: 'invalid_muscle',
+      reps: 25,
+      durationMs: 24000,
+      caloriesBurned: 12.5,
+      notes: '',
+      createdAt: 'REQUEST_TIME',
+    },
+    expectedResult: 'PERMISSION_DENIED',
+  },
+  {
+    id: 8,
+    name: 'Client Timestamp Forgery',
+    operation: 'create',
+    path: '/users/userA/workoutSets/set_3',
+    auth: { uid: 'userA', email_verified: true },
+    payload: {
+      userId: 'userA',
+      dateKey: '2026-11-25',
+      setNumber: 1,
+      pushUpType: 'tricep',
+      reps: 20,
+      durationMs: 20000,
+      caloriesBurned: 10,
+      notes: '',
+      createdAt: '2020-01-01T00:00:00Z',
+    },
+    expectedResult: 'PERMISSION_DENIED',
+  },
+  {
+    id: 9,
+    name: 'Path ID Poisoning',
+    operation: 'create',
+    path: `/users/userA/workoutSets/${'x'.repeat(150)}`,
+    auth: { uid: 'userA', email_verified: true },
+    payload: {
+      userId: 'userA',
+      dateKey: '2026-11-25',
+      setNumber: 1,
+      pushUpType: 'bicep',
+      reps: 15,
+      durationMs: 18000,
+      caloriesBurned: 8,
+      notes: '',
+      createdAt: 'REQUEST_TIME',
+    },
+    expectedResult: 'PERMISSION_DENIED',
+  },
+  {
+    id: 10,
+    name: 'Value Poisoning on Notes Update',
+    operation: 'update',
+    path: '/users/userA/workoutSets/set_1',
+    auth: { uid: 'userA', email_verified: true },
+    payload: {
+      notes: 'z'.repeat(250),
+    },
+    expectedResult: 'PERMISSION_DENIED',
+  },
+  {
+    id: 11,
+    name: 'Immutable Field Tampering on Profile Update',
+    operation: 'update',
+    path: '/users/userA',
+    auth: { uid: 'userA', email_verified: true },
+    payload: {
+      userId: 'userB',
+      dailyRepGoal: 120,
+      updatedAt: 'REQUEST_TIME',
+    },
+    expectedResult: 'PERMISSION_DENIED',
+  },
+  {
+    id: 12,
+    name: 'Resource Exhaustion in ProteinLog',
+    operation: 'create',
+    path: '/users/userA/proteinLogs/log_1',
+    auth: { uid: 'userA', email_verified: true },
+    payload: {
+      userId: 'userA',
+      dateKey: '2026-11-25',
+      foodName: 'A'.repeat(120),
+      serving: '1 scoop',
+      proteinGrams: 9999,
+      calories: 50000,
+      relatedSetId: '',
+      createdAt: 'REQUEST_TIME',
+    },
+    expectedResult: 'PERMISSION_DENIED',
+  },
+];

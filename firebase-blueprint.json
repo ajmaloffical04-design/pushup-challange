@@ -1,0 +1,204 @@
+{
+  "entities": {
+    "UserProfile": {
+      "title": "UserProfile",
+      "description": "User fitness targets and body metrics for calorie burn estimation.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Firebase Auth UID of the user."
+        },
+        "dailyRepGoal": {
+          "type": "number",
+          "description": "Daily push-up repetition target (10 to 2000)."
+        },
+        "dailyProteinGoal": {
+          "type": "number",
+          "description": "Daily post-workout protein target in grams (20 to 400)."
+        },
+        "bodyWeightKg": {
+          "type": "number",
+          "description": "User body weight in kilograms for accurate calorie calculation (30 to 250)."
+        },
+        "reminderEnabled": {
+          "type": "boolean",
+          "description": "Whether daily browser workout reminders are enabled."
+        },
+        "reminderTime": {
+          "type": "string",
+          "minLength": 5,
+          "maxLength": 5,
+          "pattern": "^([01]\\d|2[0-3]):[0-5]\\d$",
+          "description": "Scheduled daily reminder time in 24-hour HH:MM format."
+        },
+        "reminderPushUpType": {
+          "type": "string",
+          "enum": ["shoulder", "bicep", "tricep", "wings"],
+          "maxLength": 16,
+          "description": "Preferred push-up variation launched by the daily reminder."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the profile was created."
+        },
+        "updatedAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the profile was last updated."
+        }
+      },
+      "required": [
+        "userId",
+        "dailyRepGoal",
+        "dailyProteinGoal",
+        "bodyWeightKg",
+        "createdAt",
+        "updatedAt"
+      ]
+    },
+    "WorkoutSet": {
+      "title": "WorkoutSet",
+      "description": "A completed push-up workout set with muscle target, timer duration, and calories burned.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Owner Firebase Auth UID."
+        },
+        "dateKey": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "description": "Local calendar date in YYYY-MM-DD format."
+        },
+        "setNumber": {
+          "type": "number",
+          "description": "Sequential set number for the day (1 to 100)."
+        },
+        "pushUpType": {
+          "type": "string",
+          "enum": ["shoulder", "bicep", "tricep", "wings"],
+          "maxLength": 16,
+          "description": "Target muscle push-up variation."
+        },
+        "reps": {
+          "type": "number",
+          "description": "Number of push-up repetitions completed (1 to 2000)."
+        },
+        "durationMs": {
+          "type": "number",
+          "description": "Elapsed set duration in milliseconds (0 to 7200000)."
+        },
+        "caloriesBurned": {
+          "type": "number",
+          "description": "Estimated kilocalories burned during the set (0 to 5000)."
+        },
+        "notes": {
+          "type": "string",
+          "maxLength": 200,
+          "description": "Optional note about the set."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the set was logged."
+        }
+      },
+      "required": [
+        "userId",
+        "dateKey",
+        "setNumber",
+        "pushUpType",
+        "reps",
+        "durationMs",
+        "caloriesBurned",
+        "notes",
+        "createdAt"
+      ]
+    },
+    "ProteinLog": {
+      "title": "ProteinLog",
+      "description": "Post-push-up protein food or drink logged by the user.",
+      "type": "object",
+      "properties": {
+        "userId": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "pattern": "^[a-zA-Z0-9_\\-]+$",
+          "description": "Owner Firebase Auth UID."
+        },
+        "dateKey": {
+          "type": "string",
+          "minLength": 10,
+          "maxLength": 10,
+          "pattern": "^\\d{4}-\\d{2}-\\d{2}$",
+          "description": "Local calendar date in YYYY-MM-DD format."
+        },
+        "foodName": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 80,
+          "description": "Name of the protein food or drink."
+        },
+        "serving": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 60,
+          "description": "Serving size description."
+        },
+        "proteinGrams": {
+          "type": "number",
+          "description": "Protein content in grams (0 to 300)."
+        },
+        "calories": {
+          "type": "number",
+          "description": "Energy content in kcal (0 to 3000)."
+        },
+        "relatedSetId": {
+          "type": "string",
+          "maxLength": 128,
+          "description": "Optional workout set ID associated with this post-workout meal."
+        },
+        "createdAt": {
+          "type": "string",
+          "format": "date-time",
+          "description": "Server timestamp when the protein intake was logged."
+        }
+      },
+      "required": [
+        "userId",
+        "dateKey",
+        "foodName",
+        "serving",
+        "proteinGrams",
+        "calories",
+        "relatedSetId",
+        "createdAt"
+      ]
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": { "$ref": "#/entities/UserProfile" },
+      "description": "Private fitness profile and daily goals owned by a single user."
+    },
+    "/users/{userId}/workoutSets/{setId}": {
+      "schema": { "$ref": "#/entities/WorkoutSet" },
+      "description": "Completed push-up workout sets for the user."
+    },
+    "/users/{userId}/proteinLogs/{logId}": {
+      "schema": { "$ref": "#/entities/ProteinLog" },
+      "description": "Post-push-up protein foods logged by the user."
+    }
+  }
+}

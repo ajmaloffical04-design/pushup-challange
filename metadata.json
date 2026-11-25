@@ -1,0 +1,6 @@
+{
+  "name": "Pushr",
+  "description": "Minimalist push-up counter, timer, calorie burn equivalent tracker, muscle-targeted push-up animations, post-workout protein log, and historical progress dashboard.",
+  "requestFramePermissions": ["camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

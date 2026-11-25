@@ -1,0 +1,294 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Global Safety Net: Default-deny catch-all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // =========================================================================
+    // Hardened Global Primitives
+    // =========================================================================
+    function isSignedIn() {
+      return request.auth != null;
+    }
+
+    function isVerifiedUser() {
+      return isSignedIn() && request.auth.token.email_verified == true;
+    }
+
+    function isOwner(userId) {
+      return isSignedIn() && request.auth.uid == userId;
+    }
+
+    function incoming() {
+      return request.resource.data;
+    }
+
+    function existing() {
+      return resource.data;
+    }
+
+    function isValidId(id) {
+      return id is string && id.size() >= 1 && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$');
+    }
+
+    function isValidDateKey(dateKey) {
+      return dateKey is string && dateKey.size() == 10 && dateKey.matches('^\\d{4}-\\d{2}-\\d{2}$');
+    }
+
+    function isValidPushUpType(pushUpType) {
+      return pushUpType is string && pushUpType.size() <= 16 && pushUpType in ['shoulder', 'bicep', 'tricep', 'wings'];
+    }
+
+    function hasParentProfile(userId) {
+      return exists(/databases/$(database)/documents/users/$(userId));
+    }
+
+    function isValidReminderTime(val) {
+      return val is string && val.size() == 5 && val.matches('^([01]\\d|2[0-3]):[0-5]\\d$');
+    }
+
+    // =========================================================================
+    // Validation Blueprints (Anti-Update-Gap)
+    // =========================================================================
+    function isValidUserProfile(data) {
+      return data.keys().hasAll([
+          'userId',
+          'dailyRepGoal',
+          'dailyProteinGoal',
+          'bodyWeightKg',
+          'createdAt',
+          'updatedAt'
+        ])
+        && data.keys().hasOnly([
+          'userId',
+          'dailyRepGoal',
+          'dailyProteinGoal',
+          'bodyWeightKg',
+          'reminderEnabled',
+          'reminderTime',
+          'reminderPushUpType',
+          'createdAt',
+          'updatedAt'
+        ])
+        && isValidId(data.userId)
+        && data.userId == request.auth.uid
+        && data.dailyRepGoal is number && data.dailyRepGoal >= 10 && data.dailyRepGoal <= 2000
+        && data.dailyProteinGoal is number && data.dailyProteinGoal >= 20 && data.dailyProteinGoal <= 400
+        && data.bodyWeightKg is number && data.bodyWeightKg >= 30 && data.bodyWeightKg <= 250
+        && (!('reminderEnabled' in data) || data.reminderEnabled is bool)
+        && (!('reminderTime' in data) || isValidReminderTime(data.reminderTime))
+        && (!('reminderPushUpType' in data) || isValidPushUpType(data.reminderPushUpType))
+        && data.createdAt is timestamp
+        && data.updatedAt is timestamp;
+    }
+
+    function isValidWorkoutSet(data) {
+      return data.keys().hasAll([
+          'userId',
+          'dateKey',
+          'setNumber',
+          'pushUpType',
+          'reps',
+          'durationMs',
+          'caloriesBurned',
+          'notes',
+          'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'userId',
+          'dateKey',
+          'setNumber',
+          'pushUpType',
+          'reps',
+          'durationMs',
+          'caloriesBurned',
+          'notes',
+          'createdAt'
+        ])
+        && isValidId(data.userId)
+        && data.userId == request.auth.uid
+        && isValidDateKey(data.dateKey)
+        && data.setNumber is number && data.setNumber >= 1 && data.setNumber <= 100
+        && isValidPushUpType(data.pushUpType)
+        && data.reps is number && data.reps >= 1 && data.reps <= 2000
+        && data.durationMs is number && data.durationMs >= 0 && data.durationMs <= 7200000
+        && data.caloriesBurned is number && data.caloriesBurned >= 0 && data.caloriesBurned <= 5000
+        && data.notes is string && data.notes.size() <= 200
+        && data.createdAt is timestamp;
+    }
+
+    function isValidProteinLog(data) {
+      return data.keys().hasAll([
+          'userId',
+          'dateKey',
+          'foodName',
+          'serving',
+          'proteinGrams',
+          'calories',
+          'relatedSetId',
+          'createdAt'
+        ])
+        && data.keys().hasOnly([
+          'userId',
+          'dateKey',
+          'foodName',
+          'serving',
+          'proteinGrams',
+          'calories',
+          'relatedSetId',
+          'createdAt'
+        ])
+        && isValidId(data.userId)
+        && data.userId == request.auth.uid
+        && isValidDateKey(data.dateKey)
+        && data.foodName is string && data.foodName.size() >= 1 && data.foodName.size() <= 80
+        && data.serving is string && data.serving.size() >= 1 && data.serving.size() <= 60
+        && data.proteinGrams is number && data.proteinGrams >= 0 && data.proteinGrams <= 300
+        && data.calories is number && data.calories >= 0 && data.calories <= 3000
+        && data.relatedSetId is string && data.relatedSetId.size() <= 128
+        && (data.relatedSetId == '' || isValidId(data.relatedSetId))
+        && data.createdAt is timestamp;
+    }
+
+    // =========================================================================
+    // Collection: /users/{userId}
+    // =========================================================================
+    match /users/{userId} {
+      allow get: if isSignedIn() && isValidId(userId) && isOwner(userId);
+      allow list: if false;
+
+      allow create: if isVerifiedUser()
+        && isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(incoming())
+        && incoming().userId == userId
+        && incoming().createdAt == request.time
+        && incoming().updatedAt == request.time;
+
+      allow update: if isVerifiedUser()
+        && isValidId(userId)
+        && isOwner(userId)
+        && isValidUserProfile(incoming())
+        && incoming().userId == existing().userId
+        && incoming().createdAt == existing().createdAt
+        && incoming().updatedAt == request.time
+        && (
+          // Action: Update fitness targets and body metrics
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'dailyRepGoal',
+            'dailyProteinGoal',
+            'bodyWeightKg',
+            'updatedAt'
+          ]) ||
+          // Action: Update daily workout reminder schedule
+          incoming().diff(existing()).affectedKeys().hasOnly([
+            'reminderEnabled',
+            'reminderTime',
+            'reminderPushUpType',
+            'updatedAt'
+          ])
+        );
+
+      allow delete: if isVerifiedUser() && isValidId(userId) && isOwner(userId);
+
+      // =======================================================================
+      // Subcollection: /users/{userId}/workoutSets/{setId}
+      // =======================================================================
+      match /workoutSets/{setId} {
+        allow get: if isSignedIn()
+          && isValidId(userId)
+          && isValidId(setId)
+          && isOwner(userId)
+          && existing().userId == request.auth.uid
+          && hasParentProfile(userId);
+
+        allow list: if isSignedIn()
+          && isOwner(userId)
+          && existing().userId == request.auth.uid;
+
+        allow create: if isVerifiedUser()
+          && isValidId(userId)
+          && isValidId(setId)
+          && isOwner(userId)
+          && isValidWorkoutSet(incoming())
+          && incoming().userId == userId
+          && incoming().createdAt == request.time
+          && hasParentProfile(userId);
+
+        allow update: if isVerifiedUser()
+          && isValidId(userId)
+          && isValidId(setId)
+          && isOwner(userId)
+          && isValidWorkoutSet(incoming())
+          && incoming().userId == existing().userId
+          && incoming().createdAt == existing().createdAt
+          && (
+            // Action: Edit set notes
+            incoming().diff(existing()).affectedKeys().hasOnly(['notes'])
+          )
+          && hasParentProfile(userId);
+
+        allow delete: if isVerifiedUser()
+          && isValidId(userId)
+          && isValidId(setId)
+          && isOwner(userId)
+          && existing().userId == request.auth.uid
+          && hasParentProfile(userId);
+      }
+
+      // =======================================================================
+      // Subcollection: /users/{userId}/proteinLogs/{logId}
+      // =======================================================================
+      match /proteinLogs/{logId} {
+        allow get: if isSignedIn()
+          && isValidId(userId)
+          && isValidId(logId)
+          && isOwner(userId)
+          && existing().userId == request.auth.uid
+          && hasParentProfile(userId);
+
+        allow list: if isSignedIn()
+          && isOwner(userId)
+          && existing().userId == request.auth.uid;
+
+        allow create: if isVerifiedUser()
+          && isValidId(userId)
+          && isValidId(logId)
+          && isOwner(userId)
+          && isValidProteinLog(incoming())
+          && incoming().userId == userId
+          && incoming().createdAt == request.time
+          && hasParentProfile(userId);
+
+        allow update: if isVerifiedUser()
+          && isValidId(userId)
+          && isValidId(logId)
+          && isOwner(userId)
+          && isValidProteinLog(incoming())
+          && incoming().userId == existing().userId
+          && incoming().createdAt == existing().createdAt
+          && (
+            // Action: Edit logged protein food details
+            incoming().diff(existing()).affectedKeys().hasOnly([
+              'foodName',
+              'serving',
+              'proteinGrams',
+              'calories'
+            ])
+          )
+          && hasParentProfile(userId);
+
+        allow delete: if isVerifiedUser()
+          && isValidId(userId)
+          && isValidId(logId)
+          && isOwner(userId)
+          && existing().userId == request.auth.uid
+          && hasParentProfile(userId);
+      }
+    }
+  }
+}

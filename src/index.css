@@ -1,0 +1,115 @@
+@import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
+
+@layer base {
+  :root {
+    --font-display: "SF Pro Display", -apple-system, BlinkMacSystemFont, "DM Sans", system-ui, sans-serif;
+    --font-sans: "SF Pro Text", "SF Pro Display", -apple-system, BlinkMacSystemFont, "DM Sans", system-ui, sans-serif;
+    --font-mono: "SF Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  }
+
+  html {
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-[#EAEAEF] text-[#0A0A0C] dark:bg-[#0B0B0D] dark:text-[#F5F5F7] transition-colors duration-300;
+  }
+}
+
+.font-sf-display {
+  font-family: var(--font-display);
+}
+
+.font-sf-mono {
+  font-family: var(--font-mono);
+}
+
+/* Signature Pushr Studio Radial Spotlight (matching screenshot) */
+.pushr-spotlight {
+  background: radial-gradient(
+    ellipse 72% 58% at 50% 47%,
+    #ffffff 0%,
+    #ffffff 36%,
+    #f3f3f6 58%,
+    #e4e4e9 82%,
+    #d8d8de 100%
+  );
+}
+
+.dark .pushr-spotlight {
+  background: radial-gradient(
+    ellipse 72% 58% at 50% 47%,
+    #242429 0%,
+    #1a1a1f 38%,
+    #131317 65%,
+    #0d0d10 88%,
+    #09090b 100%
+  );
+}
+
+/* Signature Pushr Counter Floor Reflection */
+.pushr-reflection {
+  transform: scaleY(-0.82);
+  filter: blur(5px);
+  opacity: 0.22;
+  mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.35) 45%, rgba(0, 0, 0, 0) 92%);
+  -webkit-mask-image: linear-gradient(to bottom, rgba(0, 0, 0, 0.9) 0%, rgba(0, 0, 0, 0.35) 45%, rgba(0, 0, 0, 0) 92%);
+  pointer-events: none;
+  user-select: none;
+}
+
+.dark .pushr-reflection {
+  opacity: 0.26;
+}
+
+/* Tactile frosted glass pills matching the Pushr screenshot */
+.pushr-pill {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.92) 0%, rgba(242, 242, 246, 0.88) 100%);
+  box-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 0.95) inset,
+    0 2px 10px rgba(0, 0, 0, 0.06),
+    0 1px 2px rgba(0, 0, 0, 0.05);
+  border: 1px solid rgba(255, 255, 255, 0.85);
+}
+
+.dark .pushr-pill {
+  background: linear-gradient(180deg, rgba(44, 44, 50, 0.92) 0%, rgba(30, 30, 35, 0.9) 100%);
+  box-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 0.08) inset,
+    0 4px 14px rgba(0, 0, 0, 0.45);
+  border: 1px solid rgba(255, 255, 255, 0.09);
+}
+
+.pushr-stop-btn {
+  background: linear-gradient(180deg, #ff3434 0%, #ea1f1f 100%);
+  box-shadow:
+    0 1px 0 0 rgba(255, 255, 255, 0.28) inset,
+    0 4px 12px rgba(234, 31, 31, 0.32);
+}
+
+/* Custom subtle scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+  background: rgba(120, 120, 130, 0.28);
+  border-radius: 9999px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
